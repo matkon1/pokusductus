@@ -1,86 +1,239 @@
 <!doctype html>
 <html lang="cs">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Advent Mini Game — Catch the Gifts</title>
-<style>
-:root{--bg:#0b1220;--accent:#ffd166;--muted:#a8b3c6}
-html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,var(--bg),#07101a);color:#fff}
-.wrap{display:flex;flex-direction:column;align-items:center;padding:18px}
-canvas{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.3));border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,0.7)}
-.ui{width:800px;max-width:94vw;display:flex;justify-content:space-between;align-items:center;margin:12px 0;gap:8px}
-button{background:transparent;border:1px solid rgba(255,255,255,0.08);color:var(--muted);padding:8px 12px;border-radius:8px;font-weight:600;cursor:pointer}
-a.small{font-size:12px;color:var(--muted);text-decoration:none}
-.hint{font-size:13px;color:var(--muted)}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+  <title>Simple Mobile Controls</title>
+  <style>
+    /* No diacritics in UI labels if possible */
+    :root{
+      --bg:#f4f7fb;
+      --ground:#d0d7e6;
+      --btn-bg: #1f6feb;
+      --btn-fg: #fff;
+      --ui-size: 72px; /* button size */
+    }
+    html,body{height:100%;margin:0}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;background:var(--bg);display:flex;align-items:stretch}
+    .game-wrap{flex:1;display:flex;flex-direction:column}
+    .stage{flex:1;position:relative;overflow:hidden;background:linear-gradient(180deg,#e9f0ff 0%, #f7fbff 60%)}
+
+    /* ground */
+    .ground{position:absolute;left:0;right:0;bottom:0;height:110px;background:var(--ground);box-shadow:inset 0 6px 0 rgba(0,0,0,0.02)}
+
+    /* character container */
+    #character{position:absolute;left:50%;bottom:110px;transform:translateX(-50%) translateY(0);width:120px;height:120px;will-change:transform}
+    #character img{width:100%;height:100%;object-fit:contain;display:block}
+
+    /* simple HUD */
+    .hud{position:absolute;top:12px;left:12px;background:rgba(255,255,255,0.85);backdrop-filter:blur(4px);padding:8px 10px;border-radius:10px;font-size:14px}
+
+    /* controls fixed at bottom */
+    .controls{position:sticky;bottom:0;background:transparent;padding:12px;display:flex;justify-content:center;align-items:center}
+    .dpad{display:flex;gap:8px;align-items:center}
+    .dpad .row{display:flex;justify-content:center}
+
+    .btn{width:var(--ui-size);height:var(--ui-size);border-radius:18px;background:var(--btn-bg);color:var(--btn-fg);display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none;font-weight:700;font-size:20px;box-shadow:0 6px 12px rgba(31,111,235,0.18)}
+    .btn:active{transform:translateY(2px)}
+    .btn--big{width:calc(var(--ui-size) * 1.2);height:calc(var(--ui-size) * 1.2);border-radius:20px}
+
+    /* layout adjustment for larger screens */
+    @media(min-width:900px){
+      #character{width:160px;height:160px}
+      :root{--ui-size:84px}
+      .controls{padding:18px}
+    }
+
+    /* small help text for desktop */
+    .help{position:absolute;right:12px;top:12px;background:rgba(255,255,255,0.85);padding:8px;border-radius:10px;font-size:13px}
+  </style>
 </head>
 <body>
-<div class="wrap">
-<h2>Advent Mini: <span style="color:var(--accent)">Catch the Gifts</span></h2>
-<div class="ui">
-<div class="hint">Šipky ‹ › = pohyb, mezerník = skok</div>
-<div>
-<button id="restart">Restart</button>
-<a class="small" id="gh-link" href="#" target="_blank" rel="noopener">Jak nasadit na GitHub Pages</a>
-</div>
-</div>
-<canvas id="game" width="800" height="420"></canvas>
+  <div class="game-wrap">
+    <div class="stage" id="stage" role="application" aria-label="Simple mobile controls stage">
+      <div class="hud" id="hud">x: <span id="posx">0</span> y: <span id="posy">0</span></div>
+      <div class="help">Use buttons below to move. Works on touch and mouse.</div>
 
-</div>
+      <!-- character: change MAIN_IMAGE variable in script below to swap image -->
+      <div id="character" aria-hidden="false">
+        <img id="charImg" src="https://upload.wikimedia.org/wikipedia/commons/8/89/HD_transparent_picture.png" alt="main character">
+      </div>
 
+      <div class="ground" aria-hidden="true"></div>
+    </div>
 
-<script>
-/*
-Jedno-souborová jednoduchá hra (HTML + JS).
-Hráè sbírá dárky, pohybuje se po plošinách. Hrdina je obrázek z URL.
-Uprav konstantu HERO_IMAGE níže:
-const HERO_IMAGE = 'https://tvoje.example/foto.jpg'
+    <!-- controls -->
+    <div class="controls" id="controls">
+      <div class="dpad" aria-hidden="false">
+        <div class="row">
+          <div class="btn" id="leftBtn" aria-label="left">â—€</div>
+          <div style="width:8px"></div>
+          <div class="btn" id="rightBtn" aria-label="right">â–¶</div>
+        </div>
+      </div>
+      <div style="width:14px"></div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
+        <div class="btn btn--big" id="jumpBtn" aria-label="jump">â–²</div>
+        <div class="btn" id="actionBtn" aria-label="action">A</div>
+      </div>
+    </div>
+  </div>
 
+  <script>
+    // --------------------------
+    // MAIN_IMAGE: change this link to your character image
+    // must be an accessible URL (png/webp/jpg). Keep aspect ratio around square.
+    const MAIN_IMAGE = 'obr.png';
+    // --------------------------
 
-Jak spustit: uložit jako index.html a otevøít v prohlížeèi nebo nasadit na GitHub Pages.
-*/
+    // init
+    const charImg = document.getElementById('charImg');
+    charImg.src = MAIN_IMAGE;
 
+    const character = document.getElementById('character');
+    const stage = document.getElementById('stage');
+    const hudX = document.getElementById('posx');
+    const hudY = document.getElementById('posy');
 
-const HERO_IMAGE = 'https://github.com/matkon1/pokusductus/blob/a9952663fc2d642acbb27d3fe7e6663d95982558/obr.png'; // <-- sem vlož tvou URL
+    // position state in pixels relative to stage
+    let state = {
+      x: stage.clientWidth / 2, // center
+      y: 0, // 0 = on ground
+      vx: 0,
+      vy: 0,
+      width: character.clientWidth,
+      height: character.clientHeight,
+      onGround: true
+    };
 
+    // physics
+    const GRAVITY = 1600; // px/s^2
+    const MOVE_SPEED = 280; // px/s
+    const JUMP_V = 620; // px/s
 
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-let keys = {};
+    // input flags
+    let input = {left:false,right:false,jump:false,action:false};
 
+    // buttons
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
+    const jumpBtn = document.getElementById('jumpBtn');
+    const actionBtn = document.getElementById('actionBtn');
 
-// rozmìry
-const W = canvas.width, H = canvas.height;
+    const bindPointer = (el, onStart, onEnd) => {
+      // support touch and mouse
+      el.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onStart(); });
+      window.addEventListener('pointerup', (e)=>{ onEnd(); });
+      // also cancel on lost pointer
+      el.addEventListener('pointercancel', (e)=>{ onEnd(); });
+    };
 
+    bindPointer(leftBtn, ()=> input.left = true, ()=> input.left = false);
+    bindPointer(rightBtn, ()=> input.right = true, ()=> input.right = false);
+    bindPointer(jumpBtn, ()=> { if(state.onGround){ input.jump = true; } }, ()=> { input.jump = false });
+    bindPointer(actionBtn, ()=> { input.action = true; setTimeout(()=> input.action = false, 120); }, ()=> { input.action = false });
 
-// hra
-let player, platforms, gifts, score, gameOver;
+    // resize handler to keep reference sizes
+    const onResize = ()=>{
+      state.width = character.clientWidth;
+      state.height = character.clientHeight;
+      // ensure x within bounds
+      state.x = Math.min(Math.max(state.x, state.width/2), stage.clientWidth - state.width/2);
+      render(true);
+    };
+    window.addEventListener('resize', onResize);
 
+    // main loop
+    let last = performance.now();
+    function loop(ts){
+      const dt = Math.min((ts - last)/1000, 0.05);
+      last = ts;
 
-const heroImg = new Image();
-heroImg.crossOrigin = 'anonymous';
-heroImg.src = HERO_IMAGE;
+      // horizontal movement
+      let targetVx = 0;
+      if(input.left) targetVx -= MOVE_SPEED;
+      if(input.right) targetVx += MOVE_SPEED;
 
+      // simple accel
+      const ACC = 3000;
+      if(state.vx < targetVx) state.vx = Math.min(state.vx + ACC*dt, targetVx);
+      if(state.vx > targetVx) state.vx = Math.max(state.vx - ACC*dt, targetVx);
 
-function reset(){
-player = {x:60,y:260,w:64,h:64,vx:0,vy:0,onGround:false};
-platforms = [
-{x:0,y:360,w:800,h:60},
-{x:140,y:280,w:140,h:16},
-{x:340,y:220,w:120,h:16},
-{x:520,y:160,w:160,h:16}
-];
-gifts = [];
-for(let i=0;i<6;i++) gifts.push({x:180+Math.random()*560,y:Math.random()*120+40,w:28,h:28,vy:0,alive:true});
-score = 0; gameOver = false;
-}
+      // jump
+      if(input.jump && state.onGround){
+        state.vy = -JUMP_V;
+        state.onGround = false;
+        input.jump = false;
+      }
 
+      // gravity
+      state.vy += GRAVITY * dt;
 
-function physics(dt){
-// input
-const speed = 200;
-if(keys['ArrowLeft']) player.vx = -speed;
-else if(keys['ArrowRight']) player.vx = speed;
-else player.vx = 0;
+      // integrate
+      state.x += state.vx * dt;
+      state.y += state.vy * dt;
+
+      // ground collision
+      const groundY = 0; // y=0 means on ground bottom offset
+      const maxY = stage.clientHeight - state.height - 110; // 110 = ground height
+      // we use state.y measured from ground upward being 0 when on ground; but above we increased y with vy
+      if(state.y > 0){
+        // on ground
+        state.y = 0;
+        state.vy = 0;
+        state.onGround = true;
+      }
+
+      // clamp horizontal
+      const halfW = state.width/2;
+      state.x = Math.min(Math.max(state.x, halfW), stage.clientWidth - halfW);
+
+      render();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    function render(force){
+      // convert state.x (px from left) and state.y (0 on ground, positive up) to css transform
+      const px = state.x;
+      const groundOffset = 110 + state.height; // bottom offset
+      const transY = -state.y; // since state.y = 0 on ground, negative translateY moves up
+      character.style.transform = `translateX(${px - stage.clientWidth/2}px) translateY(${ - (state.y)}px)`;
+
+      hudX.textContent = Math.round(state.x);
+      hudY.textContent = Math.round(state.y);
+
+      // flip image based on direction
+      if(state.vx < -10) charImg.style.transform = 'scaleX(-1)';
+      else if(state.vx > 10) charImg.style.transform = 'scaleX(1)';
+
+      // simple action visual feedback
+      if(input.action){ character.style.filter = 'brightness(1.08) saturate(1.08)'; }
+      else character.style.filter = '';
+    }
+
+    // set initial x to center
+    function init(){
+      state.x = stage.clientWidth/2;
+      state.y = 0;
+      onResize();
+    }
+    init();
+
+    // prevent default gestures that interfere on mobile
+    document.addEventListener('touchmove', function(e){ if(e.scale !== 1) e.preventDefault(); }, {passive:false});
+
+    // small keyboard fallback for desktop (optional) - kept minimal and not required by user
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'ArrowLeft') input.left = true;
+      if(e.key === 'ArrowRight') input.right = true;
+      if(e.key === ' ' || e.key === 'ArrowUp') { if(state.onGround) input.jump = true; }
+    });
+    window.addEventListener('keyup', (e)=>{
+      if(e.key === 'ArrowLeft') input.left = false;
+      if(e.key === 'ArrowRight') input.right = false;
+    });
+
+  </script>
+</body>
+</html>
