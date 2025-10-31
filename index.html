@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Advent Mini Game — Catch the Gifts</title>
+<style>
+:root{--bg:#0b1220;--accent:#ffd166;--muted:#a8b3c6}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,var(--bg),#07101a);color:#fff}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:18px}
+canvas{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.3));border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,0.7)}
+.ui{width:800px;max-width:94vw;display:flex;justify-content:space-between;align-items:center;margin:12px 0;gap:8px}
+button{background:transparent;border:1px solid rgba(255,255,255,0.08);color:var(--muted);padding:8px 12px;border-radius:8px;font-weight:600;cursor:pointer}
+a.small{font-size:12px;color:var(--muted);text-decoration:none}
+.hint{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h2>Advent Mini: <span style="color:var(--accent)">Catch the Gifts</span></h2>
+<div class="ui">
+<div class="hint">Šipky ‹ › = pohyb, mezerník = skok</div>
+<div>
+<button id="restart">Restart</button>
+<a class="small" id="gh-link" href="#" target="_blank" rel="noopener">Jak nasadit na GitHub Pages</a>
+</div>
+</div>
+<canvas id="game" width="800" height="420"></canvas>
+<p class="hint">Tip: v souboru zmìò hodnotu <code>HERO_IMAGE</code> na URL tvé fotky.</p>
+</div>
+
+
+<script>
+/*
+Jedno-souborová jednoduchá hra (HTML + JS).
+Hráè sbírá dárky, pohybuje se po plošinách. Hrdina je obrázek z URL.
+Uprav konstantu HERO_IMAGE níže:
+const HERO_IMAGE = 'https://tvoje.example/foto.jpg'
+
+
+Jak spustit: uložit jako index.html a otevøít v prohlížeèi nebo nasadit na GitHub Pages.
+*/
+
+
+const HERO_IMAGE = 'https://github.com/matkon1/pokusductus/blob/a9952663fc2d642acbb27d3fe7e6663d95982558/obr.png'; // <-- sem vlož tvou URL
+
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let keys = {};
+
+
+// rozmìry
+const W = canvas.width, H = canvas.height;
+
+
+// hra
+let player, platforms, gifts, score, gameOver;
+
+
+const heroImg = new Image();
+heroImg.crossOrigin = 'anonymous';
+heroImg.src = HERO_IMAGE;
+
+
+function reset(){
+player = {x:60,y:260,w:64,h:64,vx:0,vy:0,onGround:false};
+platforms = [
+{x:0,y:360,w:800,h:60},
+{x:140,y:280,w:140,h:16},
+{x:340,y:220,w:120,h:16},
+{x:520,y:160,w:160,h:16}
+];
+gifts = [];
+for(let i=0;i<6;i++) gifts.push({x:180+Math.random()*560,y:Math.random()*120+40,w:28,h:28,vy:0,alive:true});
+score = 0; gameOver = false;
+}
+
+
+function physics(dt){
+// input
+const speed = 200;
+if(keys['ArrowLeft']) player.vx = -speed;
+else if(keys['ArrowRight']) player.vx = speed;
+else player.vx = 0;
