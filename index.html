@@ -3,237 +3,373 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
-  <title>Simple Mobile Controls</title>
+  <title>Infinite Runner - Mini hra</title>
   <style>
-    /* No diacritics in UI labels if possible */
     :root{
-      --bg:#f4f7fb;
-      --ground:#d0d7e6;
-      --btn-bg: #1f6feb;
-      --btn-fg: #fff;
-      --ui-size: 72px; /* button size */
+      --bg:#eaf3ff;
+      --ground:#cfe0ff;
+      --btn:#1f6feb;
+      --btn-fg:#fff;
+      --ui-size:72px;
     }
     html,body{height:100%;margin:0}
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;background:var(--bg);display:flex;align-items:stretch}
+
     .game-wrap{flex:1;display:flex;flex-direction:column}
-    .stage{flex:1;position:relative;overflow:hidden;background:linear-gradient(180deg,#e9f0ff 0%, #f7fbff 60%)}
+    .stage{flex:1;position:relative;overflow:hidden;background:linear-gradient(180deg,#eaf3ff 0%, #ffffff 70%)}
 
-    /* ground */
-    .ground{position:absolute;left:0;right:0;bottom:0;height:110px;background:var(--ground);box-shadow:inset 0 6px 0 rgba(0,0,0,0.02)}
+    .ground{position:absolute;left:0;right:0;bottom:0;height:110px;background:var(--ground);box-shadow:inset 0 6px 0 rgba(0,0,0,0.03)}
 
-    /* character container */
-    #character{position:absolute;left:50%;bottom:110px;transform:translateX(-50%) translateY(0);width:120px;height:120px;will-change:transform}
-    #character img{width:100%;height:100%;object-fit:contain;display:block}
+    #player{position:absolute;left:20%;bottom:110px;transform:translateY(0);width:110px;height:110px;will-change:transform}
+    #player img{width:100%;height:100%;object-fit:contain}
 
-    /* simple HUD */
-    .hud{position:absolute;top:12px;left:12px;background:rgba(255,255,255,0.85);backdrop-filter:blur(4px);padding:8px 10px;border-radius:10px;font-size:14px}
+    .hud{position:absolute;top:12px;left:12px;background:rgba(255,255,255,0.85);padding:8px 10px;border-radius:10px;font-size:14px;display:flex;gap:10px}
+    .hud div{white-space:nowrap}
 
-    /* controls fixed at bottom */
     .controls{position:sticky;bottom:0;background:transparent;padding:12px;display:flex;justify-content:center;align-items:center}
     .dpad{display:flex;gap:8px;align-items:center}
-    .dpad .row{display:flex;justify-content:center}
-
-    .btn{width:var(--ui-size);height:var(--ui-size);border-radius:18px;background:var(--btn-bg);color:var(--btn-fg);display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none;font-weight:700;font-size:20px;box-shadow:0 6px 12px rgba(31,111,235,0.18)}
+    .btn{width:var(--ui-size);height:var(--ui-size);border-radius:16px;background:var(--btn);color:var(--btn-fg);display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none;font-weight:700;font-size:20px;box-shadow:0 8px 14px rgba(31,111,235,0.18)}
     .btn:active{transform:translateY(2px)}
-    .btn--big{width:calc(var(--ui-size) * 1.2);height:calc(var(--ui-size) * 1.2);border-radius:20px}
+    .btn--big{width:calc(var(--ui-size)*1.2);height:calc(var(--ui-size)*1.2)}
 
-    /* layout adjustment for larger screens */
+    /* object styles */
+    .coin{position:absolute;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800}
+    .obstacle{position:absolute;width:64px;height:64px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+
     @media(min-width:900px){
-      #character{width:160px;height:160px}
-      :root{--ui-size:84px}
-      .controls{padding:18px}
+      :root{--ui-size:86px}
+      #player{width:150px;height:150px}
     }
 
-    /* small help text for desktop */
-    .help{position:absolute;right:12px;top:12px;background:rgba(255,255,255,0.85);padding:8px;border-radius:10px;font-size:13px}
+    .overlay{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+    .panel{pointer-events:auto;background:rgba(255,255,255,0.95);padding:18px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.12);text-align:center}
+    .hidden{display:none}
   </style>
 </head>
 <body>
   <div class="game-wrap">
-    <div class="stage" id="stage" role="application" aria-label="Simple mobile controls stage">
-      <div class="hud" id="hud">x: <span id="posx">0</span> y: <span id="posy">0</span></div>
-      <div class="help">Use buttons below to move. Works on touch and mouse.</div>
+    <div class="stage" id="stage" role="application" aria-label="infinite runner stage">
 
-      <!-- character: change MAIN_IMAGE variable in script below to swap image -->
-      <div id="character" aria-hidden="false">
-        <img id="charImg" src="https://upload.wikimedia.org/wikipedia/commons/8/89/HD_transparent_picture.png" alt="main character">
+      <div class="hud">
+        <div>Skore: <span id="score">0</span></div>
+        <div>Cas: <span id="time">0.0</span>s</div>
+        <div>Speed: <span id="speed">1.0x</span></div>
       </div>
 
+      <!-- player image: change MAIN_IMAGE in script to swap character -->
+      <div id="player" aria-hidden="false">
+        <img id="playerImg" src="https://upload.wikimedia.org/wikipedia/commons/8/89/HD_transparent_picture.png" alt="player">
+      </div>
+
+      <!-- ground visual -->
       <div class="ground" aria-hidden="true"></div>
+
+      <!-- overlay for start/gameover -->
+      <div class="overlay">
+        <div class="panel" id="startPanel">
+          <h2 style="margin:0 0 8px">Infinite Runner</h2>
+          <p style="margin:0 0 12px">Sbirej mince, vyhybej se prekazkam. Hra bezi nekonecne - cim dele prezijes, tim rychlejsi je hra.</p>
+          <div style="display:flex;gap:10px;justify-content:center">
+            <div class="btn" id="startBtn">START</div>
+            <div class="btn" id="howBtn">HOW</div>
+          </div>
+        </div>
+
+        <div class="panel hidden" id="gameOverPanel">
+          <h2 id="goTitle">Game Over</h2>
+          <p>Skore: <strong id="finalScore">0</strong></p>
+          <p>Cas: <strong id="finalTime">0.0</strong>s</p>
+          <div style="display:flex;gap:10px;justify-content:center">
+            <div class="btn" id="retryBtn">RETRY</div>
+            <div class="btn" id="shareBtn">SHARE</div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
-    <!-- controls -->
     <div class="controls" id="controls">
       <div class="dpad" aria-hidden="false">
-        <div class="row">
-          <div class="btn" id="leftBtn" aria-label="left">◀</div>
-          <div style="width:8px"></div>
-          <div class="btn" id="rightBtn" aria-label="right">▶</div>
-        </div>
+        <div class="btn" id="leftBtn">◀</div>
+        <div style="width:8px"></div>
+        <div class="btn" id="rightBtn">▶</div>
       </div>
       <div style="width:14px"></div>
       <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
-        <div class="btn btn--big" id="jumpBtn" aria-label="jump">▲</div>
-        <div class="btn" id="actionBtn" aria-label="action">A</div>
+        <div class="btn btn--big" id="jumpBtn">▲</div>
       </div>
     </div>
   </div>
 
   <script>
-    // --------------------------
-    // MAIN_IMAGE: change this link to your character image
-    // must be an accessible URL (png/webp/jpg). Keep aspect ratio around square.
+    // ---------------------------
+    // CHANGE THIS URL to swap main character
     const MAIN_IMAGE = 'obr.png';
-    // --------------------------
+    // ---------------------------
 
-    // init
-    const charImg = document.getElementById('charImg');
-    charImg.src = MAIN_IMAGE;
-
-    const character = document.getElementById('character');
+    // stage elements
     const stage = document.getElementById('stage');
-    const hudX = document.getElementById('posx');
-    const hudY = document.getElementById('posy');
+    const playerEl = document.getElementById('player');
+    const playerImg = document.getElementById('playerImg');
+    const scoreEl = document.getElementById('score');
+    const timeEl = document.getElementById('time');
+    const speedEl = document.getElementById('speed');
 
-    // position state in pixels relative to stage
+    // panels
+    const startPanel = document.getElementById('startPanel');
+    const gameOverPanel = document.getElementById('gameOverPanel');
+    const startBtn = document.getElementById('startBtn');
+    const retryBtn = document.getElementById('retryBtn');
+    const howBtn = document.getElementById('howBtn');
+    const finalScore = document.getElementById('finalScore');
+    const finalTime = document.getElementById('finalTime');
+
+    playerImg.src = MAIN_IMAGE;
+
+    // game state
     let state = {
-      x: stage.clientWidth / 2, // center
-      y: 0, // 0 = on ground
-      vx: 0,
-      vy: 0,
-      width: character.clientWidth,
-      height: character.clientHeight,
-      onGround: true
+      running: false,
+      score: 0,
+      time: 0,
+      speedMultiplier: 1.0,
+      spawnTimer: 0,
+      spawnInterval: 1.2, // seconds
+      objects: [], // coins and obstacles
+      player: {x: stage.clientWidth * 0.2, y: 0, vx:0, vy:0, width: playerEl.clientWidth, height: playerEl.clientHeight, onGround:true}
     };
 
-    // physics
+    // physics & tuning
     const GRAVITY = 1600; // px/s^2
-    const MOVE_SPEED = 280; // px/s
-    const JUMP_V = 620; // px/s
+    const MOVE_SPEED = 300; // horizontal px/s when moving
+    const JUMP_V = 650; // initial jump velocity
+    const OBJECT_SPEED_BASE = 220; // px/s base speed of incoming objects
 
     // input flags
-    let input = {left:false,right:false,jump:false,action:false};
+    const input = {left:false,right:false,jump:false};
 
-    // buttons
-    const leftBtn = document.getElementById('leftBtn');
-    const rightBtn = document.getElementById('rightBtn');
-    const jumpBtn = document.getElementById('jumpBtn');
-    const actionBtn = document.getElementById('actionBtn');
-
-    const bindPointer = (el, onStart, onEnd) => {
-      // support touch and mouse
+    // bind touch/mouse controls
+    function bindButton(id, onStart, onEnd){
+      const el = document.getElementById(id);
       el.addEventListener('pointerdown', (e)=>{ e.preventDefault(); onStart(); });
-      window.addEventListener('pointerup', (e)=>{ onEnd(); });
-      // also cancel on lost pointer
-      el.addEventListener('pointercancel', (e)=>{ onEnd(); });
-    };
-
-    bindPointer(leftBtn, ()=> input.left = true, ()=> input.left = false);
-    bindPointer(rightBtn, ()=> input.right = true, ()=> input.right = false);
-    bindPointer(jumpBtn, ()=> { if(state.onGround){ input.jump = true; } }, ()=> { input.jump = false });
-    bindPointer(actionBtn, ()=> { input.action = true; setTimeout(()=> input.action = false, 120); }, ()=> { input.action = false });
-
-    // resize handler to keep reference sizes
-    const onResize = ()=>{
-      state.width = character.clientWidth;
-      state.height = character.clientHeight;
-      // ensure x within bounds
-      state.x = Math.min(Math.max(state.x, state.width/2), stage.clientWidth - state.width/2);
-      render(true);
-    };
-    window.addEventListener('resize', onResize);
-
-    // main loop
-    let last = performance.now();
-    function loop(ts){
-      const dt = Math.min((ts - last)/1000, 0.05);
-      last = ts;
-
-      // horizontal movement
-      let targetVx = 0;
-      if(input.left) targetVx -= MOVE_SPEED;
-      if(input.right) targetVx += MOVE_SPEED;
-
-      // simple accel
-      const ACC = 3000;
-      if(state.vx < targetVx) state.vx = Math.min(state.vx + ACC*dt, targetVx);
-      if(state.vx > targetVx) state.vx = Math.max(state.vx - ACC*dt, targetVx);
-
-      // jump
-      if(input.jump && state.onGround){
-        state.vy = -JUMP_V;
-        state.onGround = false;
-        input.jump = false;
-      }
-
-      // gravity
-      state.vy += GRAVITY * dt;
-
-      // integrate
-      state.x += state.vx * dt;
-      state.y += state.vy * dt;
-
-      // ground collision
-      const groundY = 0; // y=0 means on ground bottom offset
-      const maxY = stage.clientHeight - state.height - 110; // 110 = ground height
-      // we use state.y measured from ground upward being 0 when on ground; but above we increased y with vy
-      if(state.y > 0){
-        // on ground
-        state.y = 0;
-        state.vy = 0;
-        state.onGround = true;
-      }
-
-      // clamp horizontal
-      const halfW = state.width/2;
-      state.x = Math.min(Math.max(state.x, halfW), stage.clientWidth - halfW);
-
-      render();
-      requestAnimationFrame(loop);
-    }
-    requestAnimationFrame(loop);
-
-    function render(force){
-      // convert state.x (px from left) and state.y (0 on ground, positive up) to css transform
-      const px = state.x;
-      const groundOffset = 110 + state.height; // bottom offset
-      const transY = -state.y; // since state.y = 0 on ground, negative translateY moves up
-      character.style.transform = `translateX(${px - stage.clientWidth/2}px) translateY(${ - (state.y)}px)`;
-
-      hudX.textContent = Math.round(state.x);
-      hudY.textContent = Math.round(state.y);
-
-      // flip image based on direction
-      if(state.vx < -10) charImg.style.transform = 'scaleX(-1)';
-      else if(state.vx > 10) charImg.style.transform = 'scaleX(1)';
-
-      // simple action visual feedback
-      if(input.action){ character.style.filter = 'brightness(1.08) saturate(1.08)'; }
-      else character.style.filter = '';
+      window.addEventListener('pointerup', ()=> onEnd());
+      el.addEventListener('pointercancel', ()=> onEnd());
     }
 
-    // set initial x to center
-    function init(){
-      state.x = stage.clientWidth/2;
-      state.y = 0;
-      onResize();
-    }
-    init();
+    bindButton('leftBtn', ()=> input.left = true, ()=> input.left = false);
+    bindButton('rightBtn', ()=> input.right = true, ()=> input.right = false);
+    bindButton('jumpBtn', ()=> { if(state.player.onGround) input.jump = true; }, ()=> {});
 
-    // prevent default gestures that interfere on mobile
-    document.addEventListener('touchmove', function(e){ if(e.scale !== 1) e.preventDefault(); }, {passive:false});
-
-    // small keyboard fallback for desktop (optional) - kept minimal and not required by user
+    // optional keyboard support
     window.addEventListener('keydown', (e)=>{
       if(e.key === 'ArrowLeft') input.left = true;
       if(e.key === 'ArrowRight') input.right = true;
-      if(e.key === ' ' || e.key === 'ArrowUp') { if(state.onGround) input.jump = true; }
+      if(e.key === ' ' || e.key === 'ArrowUp') input.jump = true;
     });
     window.addEventListener('keyup', (e)=>{
       if(e.key === 'ArrowLeft') input.left = false;
       if(e.key === 'ArrowRight') input.right = false;
     });
 
+    // resize
+    function onResize(){
+      state.player.width = playerEl.clientWidth;
+      state.player.height = playerEl.clientHeight;
+      state.player.x = Math.max(state.player.x, state.player.width/2 + 10);
+    }
+    window.addEventListener('resize', onResize);
+
+    // object helpers
+    function spawnCoin(x,y){
+      const el = document.createElement('div');
+      el.className = 'coin';
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.background = 'radial-gradient(circle at 35% 30%, #fff176, #f9a825)';
+      el.textContent = '¤';
+      stage.appendChild(el);
+      const obj = {type:'coin', el, x, y, w:48, h:48};
+      state.objects.push(obj);
+    }
+    function spawnObstacle(x,y){
+      const el = document.createElement('div');
+      el.className = 'obstacle';
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.background = 'linear-gradient(180deg,#ef5350,#c62828)';
+      el.textContent = 'X';
+      stage.appendChild(el);
+      const obj = {type:'obstacle', el, x, y, w:64, h:64};
+      state.objects.push(obj);
+    }
+
+    // spawn logic: spawn objects just off right edge
+    function maybeSpawn(dt){
+      state.spawnTimer -= dt;
+      if(state.spawnTimer <= 0){
+        state.spawnTimer = Math.max(0.45, state.spawnInterval - state.speedMultiplier*0.08);
+        const edgeX = stage.clientWidth + 80;
+        // randomize height above ground
+        const groundHeight = 110;
+        const coinY = stage.clientHeight - groundHeight - 80 - Math.random()*120;
+        // 70% chance coin, 30% obstacle
+        if(Math.random() < 0.7){
+          spawnCoin(edgeX, coinY);
+        } else {
+          const obsY = stage.clientHeight - groundHeight - 64; // on ground
+          spawnObstacle(edgeX, obsY);
+        }
+      }
+    }
+
+    // collision helper
+    function rectsOverlap(a,b){
+      return !(a.x + a.w < b.x || a.x > b.x + b.w || a.y + a.h < b.y || a.y > b.y + b.h);
+    }
+
+    // game reset/start
+    function startGame(){
+      // clear objects
+      state.objects.forEach(o=> { if(o.el && o.el.parentNode) o.el.parentNode.removeChild(o.el); });
+      state.objects = [];
+      state.score = 0;
+      state.time = 0;
+      state.speedMultiplier = 1.0;
+      state.spawnTimer = 0.2;
+      state.spawnInterval = 1.2;
+      state.player.x = stage.clientWidth * 0.2;
+      state.player.y = 0;
+      state.player.vx = 0;
+      state.player.vy = 0;
+      state.player.onGround = true;
+      scoreEl.textContent = '0';
+      timeEl.textContent = '0.0';
+      speedEl.textContent = '1.0x';
+      startPanel.classList.add('hidden');
+      gameOverPanel.classList.add('hidden');
+      state.running = true;
+      last = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    startBtn.addEventListener('click', startGame);
+    retryBtn.addEventListener('click', startGame);
+    howBtn.addEventListener('click', ()=>{
+      alert('Use buttons to move left/right and jump. Sbirej mince a vyhybej se X. Hra se postupne zrychluje.');
+    });
+
+    // share button (simple)
+    document.getElementById('shareBtn').addEventListener('click', ()=>{
+      const text = `Skore: ${state.score} Cas: ${state.time.toFixed(1)}s`;
+      if(navigator.share){ navigator.share({title:'Infinite Runner', text}); }
+      else { prompt('Copy text', text); }
+    });
+
+    // main loop
+    let last = performance.now();
+    function loop(ts){
+      if(!state.running) return;
+      const dt = Math.min((ts - last)/1000, 0.05);
+      last = ts;
+
+      // update time and difficulty
+      state.time += dt;
+      // increase speed gradually
+      state.speedMultiplier = 1 + Math.min(3.5, state.time/20);
+      speedEl.textContent = state.speedMultiplier.toFixed(2) + 'x';
+
+      // player control
+      let desiredVx = 0;
+      if(input.left) desiredVx -= MOVE_SPEED;
+      if(input.right) desiredVx += MOVE_SPEED;
+      // smooth accel
+      const ACC = 3000;
+      if(state.player.vx < desiredVx) state.player.vx = Math.min(state.player.vx + ACC*dt, desiredVx);
+      if(state.player.vx > desiredVx) state.player.vx = Math.max(state.player.vx - ACC*dt, desiredVx);
+
+      // jump
+      if(input.jump && state.player.onGround){
+        state.player.vy = -JUMP_V;
+        state.player.onGround = false;
+        input.jump = false;
+      }
+
+      // gravity
+      state.player.vy += GRAVITY * dt;
+
+      // integrate player
+      state.player.x += state.player.vx * dt;
+      state.player.y += state.player.vy * dt;
+
+      // ground collision (y measured positive up -> using 0 on ground)
+      if(state.player.y > 0){ state.player.y = 0; state.player.vy = 0; state.player.onGround = true; }
+
+      // clamp player horizontally inside left half of screen
+      const halfW = state.player.width/2;
+      state.player.x = Math.max(halfW + 6, Math.min(state.player.x, stage.clientWidth - halfW - 6));
+
+      // move objects leftward (simulate infinite scrolling)
+      const speed = OBJECT_SPEED_BASE * state.speedMultiplier;
+      for(let i = state.objects.length -1; i >=0; i--){
+        const obj = state.objects[i];
+        obj.x -= speed * dt;
+        // update DOM
+        obj.el.style.left = Math.round(obj.x) + 'px';
+
+        // simple y position stays fixed
+        // collision check with player
+        const playRect = {x: state.player.x - state.player.width/2, y: stage.clientHeight - 110 - state.player.height - state.player.y, w: state.player.width, h: state.player.height};
+        const objRect = {x: obj.x, y: obj.y, w: obj.w, h: obj.h};
+        if(rectsOverlap(playRect, objRect)){
+          if(obj.type === 'coin'){
+            // collect
+            state.score += Math.round(10 * state.speedMultiplier);
+            scoreEl.textContent = state.score;
+            // remove
+            if(obj.el && obj.el.parentNode) obj.el.parentNode.removeChild(obj.el);
+            state.objects.splice(i,1);
+            continue;
+          } else if(obj.type === 'obstacle'){
+            // hit -> game over
+            endGame();
+            return;
+          }
+        }
+
+        // remove if off-screen
+        if(obj.x + obj.w < -120){
+          if(obj.el && obj.el.parentNode) obj.el.parentNode.removeChild(obj.el);
+          state.objects.splice(i,1);
+        }
+      }
+
+      // spawning
+      maybeSpawn(dt);
+
+      // update player DOM transform
+      const px = state.player.x;
+      const translateX = px - stage.clientWidth/2;
+      const translateY = -state.player.y;
+      playerEl.style.transform = `translateX(${translateX}px) translateY(${translateY}px)`;
+
+      // update hud
+      timeEl.textContent = state.time.toFixed(1);
+
+      requestAnimationFrame(loop);
+    }
+
+    function endGame(){
+      state.running = false;
+      finalScore.textContent = state.score;
+      finalTime.textContent = state.time.toFixed(1);
+      startPanel.classList.add('hidden');
+      gameOverPanel.classList.remove('hidden');
+    }
+
+    // initial layout adjust
+    onResize();
+
+    // expose simple debug start if user wants to start quickly
+    // don't auto-start: wait for user to press START
   </script>
 </body>
 </html>
